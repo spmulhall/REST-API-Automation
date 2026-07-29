@@ -2,11 +2,8 @@ package com.dhmtesting.tests;
 
 import io.restassured.response.Response;
 import org.junit.jupiter.api.Test;
-
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-
 import static io.restassured.RestAssured.given;
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -100,5 +97,87 @@ class GetPostsTest {
         assertNotNull(allCompanyNames);
         assertFalse(allCompanyNames.isEmpty());
         assertTrue(allCompanyNames.stream().allMatch(name -> name != null && !name.isBlank()));
+    }
+
+    @Test
+    void shouldReturnAllEmails() {
+
+        Response returnEveryUser =
+                given()
+                        .baseUri("https://jsonplaceholder.typicode.com")
+                        .when()
+                        .get("/users");
+
+        //Data extractions
+        List<String> returnEveryEmail = returnEveryUser.path("email");
+
+        //Assertions
+        assertEquals(200, returnEveryUser.statusCode());
+        assertNotNull(returnEveryEmail);
+        assertFalse(returnEveryEmail.isEmpty());
+        assertEquals(10, returnEveryEmail.size());
+
+        // Equivalent assertions: lambda form and method-reference form
+        assertTrue(returnEveryEmail.stream().noneMatch(email -> email.isBlank()));
+        assertTrue(returnEveryEmail.stream().noneMatch(String::isBlank));
+
+        assertTrue(returnEveryEmail.stream().allMatch(email -> email.contains("@")));
+        assertTrue(returnEveryEmail.stream().anyMatch(email -> email.endsWith(".biz")));
+    }
+
+    @Test
+    void shouldReturnAddressAsMap(){
+
+        Response addressMapAsResponse =
+                given()
+                        .baseUri("https://jsonplaceholder.typicode.com")
+                        .when()
+                        .get("/users/1");
+
+        Map<String, Object> address = addressMapAsResponse.path("address");
+        Map<String, Object> geo = addressMapAsResponse.path("address.geo");
+        //Map<String, Object> geo = (Map<String, Object>) address.get("geo");
+        String city = (String) address.get("city");
+        String zipcode = (String) address.get("zipcode");
+        String latitude = (String) geo.get("lat");
+
+        System.out.println(address);
+
+        assertNotNull(address);
+        assertTrue(address.containsKey("city"));
+        assertEquals("Gwenborough", city);
+        assertEquals("92998-3874", zipcode);
+        assertNotNull(geo);
+        assertTrue(geo.containsKey("lat"));
+        assertEquals("-37.3159", latitude);
+    }
+
+    @Test
+    void shouldReturnUserAsListOfMap(){
+
+        Response usersResponseMap =
+                given()
+                        .baseUri("https://jsonplaceholder.typicode.com")
+                        .when()
+                        .get("/users");
+
+        List<Map<String, Object>> allUsersMap = usersResponseMap.path("");
+        Map<String, Object> secondUserMap = allUsersMap.get(1);
+        String secondUserName = (String) secondUserMap.get("name");
+        String secondUserEmail = (String) secondUserMap.get("email");
+        Map<String, Object> secondUserAddress = (Map<String, Object>) secondUserMap.get("address");
+        Map<String, Object> secondUserCompany = (Map<String, Object>) secondUserMap.get("company");
+
+        System.out.println(allUsersMap);
+
+        assertEquals(200, usersResponseMap.statusCode());
+        assertNotNull(allUsersMap);
+        assertEquals(10, allUsersMap.size());
+        assertTrue(allUsersMap.stream().allMatch(user -> user.containsKey("id")));
+        assertTrue(secondUserMap.containsKey("name"));
+        assertEquals("Ervin Howell", secondUserName);
+        assertEquals("Shanna@melissa.tv", secondUserEmail);
+        assertEquals("Wisokyburgh", secondUserAddress.get("city"));
+        assertEquals("Deckow-Crist", secondUserCompany.get("name"));
     }
 }

@@ -1,5 +1,6 @@
 package com.dhmtesting.tests;
 
+import io.restassured.path.json.JsonPath;
 import io.restassured.response.Response;
 import org.junit.jupiter.api.Test;
 import java.util.List;
@@ -10,12 +11,12 @@ import static org.junit.jupiter.api.Assertions.*;
 class GetPostsTest {
 
     @Test
-    void shouldReturnPostOne(){
+    void shouldReturnPostOne() {
 
         Response responseSinglePost =
                 given()
                         .baseUri("https://jsonplaceholder.typicode.com")
-                .when()
+                        .when()
                         .get("/posts/1");
 
         String getTitle = responseSinglePost.path("title");
@@ -34,7 +35,7 @@ class GetPostsTest {
                 given()
                         .baseUri("https://jsonplaceholder.typicode.com")
                         .queryParam("userId", 1)
-                .when()
+                        .when()
                         .get("/posts");
 
         String secondTitle = userPostsResponse.path("[1].title");
@@ -51,12 +52,12 @@ class GetPostsTest {
     }
 
     @Test
-    void shouldReturnNestedUserDetails(){
+    void shouldReturnNestedUserDetails() {
 
         Response nestedDataResponse =
                 given()
                         .baseUri("https://jsonplaceholder.typicode.com")
-                .when()
+                        .when()
                         .get("/users/1");
 
         String cityName = nestedDataResponse.path("address.city");
@@ -76,13 +77,13 @@ class GetPostsTest {
     }
 
     @Test
-    void shouldReturnAllUsersDetails(){
+    void shouldReturnAllUsersDetails() {
 
         Response returnAllUsers =
-        given()
-                .baseUri("https://jsonplaceholder.typicode.com")
-        .when()
-                .get("/users");
+                given()
+                        .baseUri("https://jsonplaceholder.typicode.com")
+                        .when()
+                        .get("/users");
 
         //Data extractions
         String secondUsersName = returnAllUsers.path("[1].name");
@@ -126,7 +127,7 @@ class GetPostsTest {
     }
 
     @Test
-    void shouldReturnAddressAsMap(){
+    void shouldReturnAddressAsMap() {
 
         Response addressMapAsResponse =
                 given()
@@ -153,7 +154,7 @@ class GetPostsTest {
     }
 
     @Test
-    void shouldReturnUserAsListOfMap(){
+    void shouldReturnUserAsListOfMap() {
 
         Response usersResponseMap =
                 given()
@@ -179,5 +180,51 @@ class GetPostsTest {
         assertEquals("Shanna@melissa.tv", secondUserEmail);
         assertEquals("Wisokyburgh", secondUserAddress.get("city"));
         assertEquals("Deckow-Crist", secondUserCompany.get("name"));
+    }
+
+    @Test
+    void returnComplexJSONShape(){
+        Response getAllUsers =
+                given()
+                        .baseUri("https://jsonplaceholder.typicode.com")
+                        .when()
+                        .get("/users");
+
+        List<Map<String, Object>> extractRootData = getAllUsers.path("");
+
+        Map<String, Object> thirdUser = extractRootData.get(2);
+
+        String thirdUserJSONName = getAllUsers.path("[2].name");
+        String thirdUserJSONCity = getAllUsers.path("[2].address.city");
+        String thirdUserJSONLat = getAllUsers.path("[2].address.geo.lat");
+        String thirdUserJSONCompanyName = getAllUsers.path("[2].company.name");
+
+        assertEquals(200, getAllUsers.statusCode());
+        assertEquals(10, extractRootData.size());
+        assertEquals("Clementine Bauch", thirdUserJSONName);
+        assertEquals("McKenziehaven", thirdUserJSONCity);
+        assertEquals("-68.6102", thirdUserJSONLat);
+        assertEquals("Romaguera-Jacobson", thirdUserJSONCompanyName);
+        assertNotNull(extractRootData);
+        assertTrue(thirdUser.containsKey("address"));
+
+
+
+        String thirdUserName = (String) thirdUser.get("name");
+        Map<String, Object> thirdUserFullAddress = (Map<String, Object>) thirdUser.get("address");
+        String thirdUserCity = (String) thirdUserFullAddress.get("city");
+        Map<String, Object> thirdUserGeo = (Map<String, Object>) thirdUserFullAddress.get("geo");
+        String thirdUserLat = (String) thirdUserGeo.get("lat");
+        Map<String, Object> thirdUserCompany = (Map<String, Object>) thirdUser.get("company");
+        String thirdUserCompanyName = (String) thirdUserCompany.get("name");
+
+        assertEquals(200, getAllUsers.statusCode());
+        assertEquals(10, extractRootData.size());
+        assertEquals("Clementine Bauch", thirdUserName);
+        assertEquals("McKenziehaven", thirdUserCity);
+        assertEquals("-68.6102", thirdUserLat);
+        assertEquals("Romaguera-Jacobson", thirdUserCompanyName);
+        assertNotNull(extractRootData);
+        assertTrue(thirdUser.containsKey("address"));
     }
 }

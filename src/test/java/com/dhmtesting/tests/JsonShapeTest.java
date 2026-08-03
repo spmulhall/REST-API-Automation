@@ -61,7 +61,7 @@ public class JsonShapeTest {
     }
 
     @Test
-    void shouldValidateTestRunResults(){
+    void shouldValidateTestRunResults() {
 
         String newJson = """
                 {
@@ -143,43 +143,43 @@ public class JsonShapeTest {
     }
 
     @Test
-    void shouldValidateEnvironmentHealthData(){
+    void shouldValidateEnvironmentHealthData() {
 
         String json = """
-            {
-              "release": "2026.07",
-              "environments": [
                 {
-                  "name": "test",
-                  "active": true,
-                  "services": [
+                  "release": "2026.07",
+                  "environments": [
                     {
-                      "name": "users-api",
-                      "status": "UP",
-                      "responseTimesMs": [120, 135, 110]
+                      "name": "test",
+                      "active": true,
+                      "services": [
+                        {
+                          "name": "users-api",
+                          "status": "UP",
+                          "responseTimesMs": [120, 135, 110]
+                        },
+                        {
+                          "name": "orders-api",
+                          "status": "UP",
+                          "responseTimesMs": [180, 165, 172]
+                        }
+                      ]
                     },
                     {
-                      "name": "orders-api",
-                      "status": "UP",
-                      "responseTimesMs": [180, 165, 172]
+                      "name": "staging",
+                      "active": false,
+                      "services": [
+                        {
+                          "name": "users-api",
+                          "status": "DOWN",
+                          "responseTimesMs": []
+                        }
+                      ]
                     }
-                  ]
-                },
-                {
-                  "name": "staging",
-                  "active": false,
-                  "services": [
-                    {
-                      "name": "users-api",
-                      "status": "DOWN",
-                      "responseTimesMs": []
-                    }
-                  ]
+                  ],
+                  "incidents": []
                 }
-              ],
-              "incidents": []
-            }
-            """;
+                """;
 
         JsonPath jsonPath = new JsonPath(json);
 
@@ -263,29 +263,166 @@ public class JsonShapeTest {
 
         //The incident list is empty.
         assertTrue(incidents.isEmpty());
+    }
+
+    @Test
+    void shouldValidateOrderData() {
+        String json = """
+                {
+                  "batchId": "BATCH-1001",
+                  "orders": [
+                    {
+                      "orderId": 101,
+                      "customer": {
+                        "name": "Alice",
+                        "email": "alice@example.com"
+                      },
+                      "items": [
+                        {
+                          "quantity": 2,
+                          "product": {
+                            "sku": "KB-01",
+                            "name": "Keyboard",
+                            "price": 49.99
+                          }
+                        },
+                        {
+                          "quantity": 1,
+                          "product": {
+                            "sku": "MS-02",
+                            "name": "Mouse",
+                            "price": 19.50
+                          }
+                        }
+                      ],
+                      "discountCode": null
+                    },
+                    {
+                      "orderId": 102,
+                      "customer": {
+                        "name": "Bob",
+                        "email": "bob@example.com"
+                      },
+                      "items": [],
+                      "discountCode": "SAVE10"
+                    }
+                  ]
+                  }
+                """;
+
+        JsonPath jsonPath = new JsonPath(json);
+
+        //EXTRACTIONS
+        Map<String, Object> jsonRoot = jsonPath.getMap("");
+        //System.out.println(jsonRoot);
+
+        String batchId = (String) jsonRoot.get("batchId");
+        //System.out.println(batchId);
+
+        List<Map<String, Object>> orders = jsonPath.getList("orders");
+        //System.out.println(orders);
+        //System.out.println("orders list size = " + orders.size());
+
+        Map<String, Object> firstOrder = orders.get(0);
+        //System.out.println(firstOrder);
+
+        Map<String, Object> secondOrder = orders.get(1);
+        //System.out.println(secondOrder);
+
+        Map<String, Object> firstCustomer = jsonPath.getMap("orders[0].customer");
+        //System.out.println(firstCustomer);
+
+        String firstCustomerEmail = (String) firstCustomer.get("email");
+
+        String firstCustomerName = (String) firstCustomer.get("name");
+        //System.out.println(firstCustomerName);
+
+        List<Map<String, Object>> firstOrderItems = jsonPath.getList("orders[0].items");
+        //System.out.println(firstOrderItems);
+
+        List<Integer> firstOrderItemsQuantity = jsonPath.getList("orders[0].items.quantity");
+
+        Map<String, Object> firstItem = firstOrderItems.get(0);
+        //System.out.println(firstItem);
+
+        Map<String, Object> secondItem = firstOrderItems.get(1);
+        //System.out.println(secondItem);
+
+        List<Map<String, Object>> firstOrderProducts = jsonPath.get("orders[0].items.product");
+        //System.out.println(firstOrderProducts);
+
+        String firstItemSku = (String) firstOrderProducts.get(0).get("sku");
+        //System.out.println(firstItemSku);
+
+        List<String> firstOrderSkus = jsonPath.get("orders[0].items.product.sku");
+        //System.out.println(firstOrderSkus);
+
+        String firstOrderSkuOne = firstOrderSkus.getFirst();
+       // System.out.println(firstOrderSkuOne);
+
+        String firstOrderSkuTwo = firstOrderSkus.get(1);
+        //System.out.println(firstOrderSkuTwo);
+
+        Float firstProductPrice = (Float) firstOrderProducts.get(0).get("price");
+        //Object price = firstOrderProduct.get("price");
+        //System.out.println(price);
+        //System.out.println(price.getClass().getName());
+
+        //String firstOrderDiscountCode = (String) orders.get(0).get("discountCode");
+        Object firstDiscountCode = firstOrder.get("discountCode");
+        //System.out.print(firstDiscountCode);
+
+        //Map<String, Object> secondOrderProduct = jsonPath.get("orders[0].items[1].product");
+        //System.out.println(secondOrderProduct);
+        Map<String, Object> secondProduct = jsonPath.getMap("orders[0].items[1].product");
+
+        //List secondOrderItems = jsonPath.getList("orders[1].items");
+        //System.out.println(secondOrderItems);
+        List<Map<String, Object>> secondOrderItems = jsonPath.getList("orders[1].items");
+
+        String secondOrderDiscountCode = (String) orders.get(1).get("discountCode");
+        //System.out.println(secondOrderDiscountCode);
 
 
+        //ASSERTIONS
+        assertEquals("BATCH-1001", batchId);
 
+        assertEquals(2, orders.size());
 
+        assertEquals(101,firstOrder.get("orderId"));
 
+        assertEquals("Alice", firstCustomer.get("name"));
 
+        //assertNotNull(firstCustomer.get("email"));
+        assertTrue(firstCustomerEmail != null && !firstCustomerEmail.isBlank());
 
+        assertEquals(2, firstOrderItems.size());
 
+        assertTrue(firstOrderItemsQuantity.stream().allMatch(quantity -> quantity > 0));
 
+        //assertTrue(firstOrderItems.stream().allMatch(item -> item.get("product") != null));
+        assertTrue(
+                firstOrderProducts.stream().noneMatch(product -> {
+                            Object sku = product.get("sku");
+                            return sku == null || ((String) sku).isBlank();
+                        })
+        );
 
+        assertTrue(firstOrderItems.stream().noneMatch(item -> item.get("product.sku") != null));
 
+        assertTrue(firstOrderProducts.stream().anyMatch(product -> (Float) product.get("price") > 40));
 
+        assertEquals("Keyboard", firstOrderProducts.getFirst().get("name"));
 
+        assertNotNull(secondOrderItems);
 
+        assertTrue(secondOrderItems.isEmpty());
 
+        //assertTrue(firstDiscountCode == null);
+        assertNull(firstDiscountCode);
 
+        assertEquals("SAVE10", secondOrderDiscountCode);
 
-
-
-
-
-
-
-
+        assertNotEquals(firstOrderSkuOne, firstOrderSkuTwo);
     }
 }

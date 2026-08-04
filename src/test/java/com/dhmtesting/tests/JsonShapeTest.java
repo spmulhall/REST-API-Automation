@@ -185,7 +185,7 @@ public class JsonShapeTest {
 
         //extractions
         Map<String, Object> extractRoot = jsonPath.getMap("");
-        //System.out.println(extractRoot);
+        System.out.println(extractRoot);
 
         Boolean firstEnvironmentActive = jsonPath.getBoolean("environments[0].active");
         //System.out.println(firstEnvironmentActive);

@@ -11,6 +11,7 @@ import static org.junit.jupiter.api.Assertions.*;
 public class JsonShapeTest {
     @Test
     void shouldNavigateNestedListsAndMaps() {
+
         String json = """
                 {
                   "project": "API Automation",
@@ -33,43 +34,63 @@ public class JsonShapeTest {
                   ]
                 }""";
 
-        JsonPath myJson = new JsonPath(json);
+        JsonPath jsonPath = new JsonPath(json);
 
-        //Extractions
-        Map<String, Object> extractRoot = myJson.getMap("");
-        String projectName = (String) extractRoot.get("project");
-        List<Map<String, Object>> extractTeams = (List<Map<String, Object>>) extractRoot.get("teams");
-        Map<String, Object> extractFirstTeam = extractTeams.get(0);
-        Map<String, Object> extractSecondTeam = extractTeams.get(1);
-        String firstTeamName = (String) extractFirstTeam.get("name");
-        List<String> firstTeamMembers = (List<String>) extractFirstTeam.get("members");
-        List<String> secondTeamMembers = (List<String>) extractSecondTeam.get("members");
 
-        //Assertions
+        //EXTRACTIONS
+        Map<String, Object> jsonRoot = jsonPath.getMap("");
+        //System.out.println(jsonRoot);
+
+        String projectName = (String) jsonRoot.get("project");
+        //System.out.println(projectName);
+
+        List<Map<String, Object>> allTeams = jsonPath.getList("teams");
+        //System.out.println(allTeams);
+        //System.out.println("the number of elements in the teams list is " + allTeams.size());
+
+        Map<String, Object> firstTeam = allTeams.get(0);
+        //System.out.println(firstTeam);
+
+        Map<String, Object> secondTeam = allTeams.get(1);
+        //System.out.println(secondTeam);
+
+        List<String> firstTeamMembers = jsonPath.getList("teams[0].members");
+        //System.out.println(firstTeamMembers);
+
+        List<String> secondTeamMembers = jsonPath.getList("teams[1].members");
+        //System.out.println(secondTeamMembers);
+
+        //ASSERTIONS
         assertEquals("API Automation", projectName);
-        assertEquals(2, extractTeams.size());
-        assertEquals("Test Engineering", firstTeamName);
-        assertEquals(3, firstTeamMembers.size());
-        assertTrue((firstTeamMembers.contains("Steve")));
 
-        //2 versions of the same assertion
-        assertTrue(firstTeamMembers.stream().noneMatch(members -> members.isBlank()));
+        assertEquals(2, allTeams.size());
+        //System.out.println("the number of elements in the teams list is " + allTeams.size());
+
+        assertEquals("Test Engineering", firstTeam.get("name"));
+        //System.out.println("the name of the first team is " + firstTeam.get("name"));
+
+        assertEquals(3, firstTeamMembers.size());
+        //System.out.println("the number of members in the first teams " + firstTeamMembers.size());
+
+        assertTrue(firstTeamMembers.contains("Steve"));
+
         assertTrue(firstTeamMembers.stream().noneMatch(String::isBlank));
 
         assertTrue(secondTeamMembers.contains("Diana"));
+
         assertTrue(firstTeamMembers.stream().noneMatch(secondTeamMembers::contains));
     }
 
     @Test
     void shouldValidateTestRunResults() {
 
-        String newJson = """
+        String json = """
                 {
                   "suite": "Regression",
                   "completed": true,
                   "tests": [
                     {
-                      "name": "Login",
+                      "name": "Regression",
                       "status": "PASSED",
                       "durationMs": 420,
                       "tags": ["smoke", "auth"]
@@ -87,59 +108,66 @@ public class JsonShapeTest {
                       "tags": ["regression", "users"]
                     }
                   ]
-                }""";
+                }
+                """;
 
-        JsonPath jsonPath = new JsonPath(newJson);
+        JsonPath jsonPath = new JsonPath(json);
 
-        //extractions
-        String suite = jsonPath.getString("suite");
-        Boolean completed = jsonPath.getBoolean("completed");
+        //EXTRACTIONS
+        Map<String, Object> jsonRoot = jsonPath.getMap("");
+        //System.out.println(jsonRoot);
 
-        List<Map<String, Object>> tests = jsonPath.getList("tests");
+        Boolean isCompleted = (Boolean) jsonRoot.get("completed");
+        //System.out.println(isCompleted);
 
-        Map<String, Object> firstTest = tests.get(0);
+        List<Map<String, Object>> allTests = jsonPath.getList("tests");
+        //System.out.println(tests);
 
-        List<String> firstTestTags = (List<String>) firstTest.get("tags");
+        List<String> testNames = allTests.stream().map(test -> (String) test.get("name")).toList();
+        //System.out.println(testNames);
 
-        List<String> names = jsonPath.getList("tests.name");
+        List<String> testStatuses = allTests.stream().map(test -> (String) test.get("status")).toList();
+        //System.out.println(testStatuses);
 
-        List<String> statuses = jsonPath.getList("tests.status");
+        List<Integer> testDurations = allTests.stream().map(test -> (Integer) test.get("durationMs")).toList();
+        //System.out.println(testDurations);
 
-        List<Integer> durations = jsonPath.getList("tests.durationMs");
+        List<List<String>> testTags = allTests.stream().map(test -> (List<String>) test.get("tags")).toList();
+        //System.out.println(testTags);
 
-        List<List<String>> tags = jsonPath.getList("tests.tags");
+        //ASSERTIONS
+        //The suite name is exactly "Regression".
+        assertEquals("Regression", jsonRoot.get("suite"));
 
-        //assertions
-        assertEquals("Regression", suite);
+        //The run is completed.
+        assertTrue(isCompleted);
 
-        assertTrue(completed);
-        assertTrue(Boolean.TRUE.equals(completed));
 
-        //run the null test before the size check - otherwise the size check will throw a null pointer exception if there are any null values
-        assertNotNull(tests);
-        assertEquals(3, tests.size());
+        //Exactly three tests were returned.
+        assertEquals(3, allTests.size());
 
-        assertTrue(names.stream().noneMatch(String::isBlank));
+        //Every test name contains non-blank text.
+        assertTrue(testNames.stream().allMatch(name -> name != null && !name.isBlank()));
 
-        //this will check if any of the statuses contain the string "FAILED" so will pass for a partial match
-        assertTrue(statuses.stream().anyMatch(status -> status.contains("FAILED")));
-        //these 2 are a stronger version of the above check which will only pass if the status is exactly "FAILED"
-        assertTrue(statuses.stream().anyMatch(status -> status.equals("FAILED")));
-        assertTrue(statuses.contains("FAILED"));
+        //At least one test has status "FAILED"
+        assertTrue(testStatuses.contains("FAILED"));
 
-        assertTrue(statuses.stream().noneMatch(String::isBlank));
+        //No test has a blank status.
+        assertTrue(testNames.stream().noneMatch(String::isBlank));
 
-        assertTrue(durations.stream().allMatch(duration -> duration > 0));
+        //Every duration is greater than zero.
+        assertTrue(testDurations.stream().allMatch(duration -> duration > 0));
 
-        //this will check if any of the statuses contain the string "FAILED" so will pass for a partial match
-        assertTrue(statuses.stream().anyMatch(status -> status.contains("PASSED")));
-        //this is a stronger version of the above check which will only pass if the status is exactly "PASSED"
-        assertTrue(statuses.stream().anyMatch(status -> status.equals("PASSED")));
-        assertTrue(statuses.contains("PASSED"));
+        assertTrue(testStatuses.stream().noneMatch(String::isBlank));
 
-        assertTrue(firstTestTags.contains("smoke"));
+        //The statuses include "PASSED".
+        assertTrue(testStatuses.contains("PASSED"));
 
-        assertTrue(tags.stream().anyMatch(testTags -> testTags.contains("users")));
+        //The first test’s tags contain "smoke".
+        assertTrue(testTags.get(0).contains("smoke"));
+
+        //any test’s tags contain "users".
+        assertTrue(testTags.stream().anyMatch(tags -> tags.contains("users")));
     }
 
     @Test
@@ -183,246 +211,81 @@ public class JsonShapeTest {
 
         JsonPath jsonPath = new JsonPath(json);
 
-        //extractions
-        Map<String, Object> extractRoot = jsonPath.getMap("");
-        System.out.println(extractRoot);
-
-        Boolean firstEnvironmentActive = jsonPath.getBoolean("environments[0].active");
-        //System.out.println(firstEnvironmentActive);
-
-        Boolean secondEnvironmentActive = jsonPath.getBoolean("environments[1].active");
-        //System.out.println(secondEnvironmentActive);
-
-        String extractRelease = jsonPath.getString("release");
-        //System.out.println(extractRelease);
-
-        List<Map<String, Object>> allEnvironments = jsonPath.getList("environments");
-        //System.out.println("environments size = " + allEnvironments.size());
-        //System.out.println("environments = " + allEnvironments);
-        //System.out.println(allEnvironments);
-
-        List<Map<String, Object>> firstEnvironmentServices = jsonPath.getList("environments[0].services");
-        //System.out.println(firstEnvironmentServices);
-
-        String firstEnvironmentServicesName = firstEnvironmentServices.get(0).get("name").toString();
-
-        List<Integer> firstServiceResponseTimes = jsonPath.getList("environments[0].services[0].responseTimesMs");
-        //System.out.println(firstServiceResponseTimes);
-
-        List<Integer> secondServiceResponseTimes = jsonPath.getList("environments[0].services[1].responseTimesMs");
-        //System.out.println(secondServiceResponseTimes);
-
-        List<Map<String, Object>> secondEnvironmentServices = jsonPath.getList("environments[1].services");
-        //System.out.println(secondEnvironmentServices);
-
-        List<Integer> secondEnvironmentResponseTimes = jsonPath.getList("environments[1].services[0].responseTimesMs");
-        //System.out.println(secondEnvironmentResponseTimes);
-
-        List<Map<String, Object>> incidents = jsonPath.getList("incidents");
-        //System.out.println(incidents);
-
-        //assertions
-        //The release is exactly "2026.07"
-        assertEquals("2026.07", extractRoot.get("release"));
-
-        //There are exactly two environments
-        assertEquals(2, allEnvironments.size());
-
-        //The first environment is active.
-        assertTrue(firstEnvironmentActive);
-
-        //The second environment is not active.
-        assertFalse(secondEnvironmentActive);
-
-        //The first environment contains exactly two services.
-        assertEquals(2, firstEnvironmentServices.size());
-
-        //every service in the first environment has status "UP"
-        assertTrue(firstEnvironmentServices.stream().allMatch(service -> "UP".equals(service.get("status"))));
-
-        //No service in the first environment has a blank name.
-        assertTrue(firstEnvironmentServicesName != null && !firstEnvironmentServicesName.isBlank());
-
-        //The first service contains exactly three response times.
-        assertEquals(3, firstServiceResponseTimes.size());
-
-        //Every response time for the first service is greater than zero.
-        assertTrue(firstServiceResponseTimes.stream().noneMatch(responseTimesMs -> responseTimesMs > 0));
-
-        //At least one response time for the second service is greater than 170.
-        assertTrue(secondServiceResponseTimes.stream().anyMatch(responseTimesMs -> responseTimesMs > 170));
-
-        //The second environment contains a service with status "DOWN"
-        assertTrue(secondEnvironmentServices.stream().anyMatch(service -> "DOWN".equals(service.get("status"))));
-
-        //The staging service’s response-time list is empty.
-        assertTrue(secondEnvironmentResponseTimes.isEmpty());
-
-        //The incident list exists.
-        assertNotNull(incidents);
-
-        //The incident list is empty.
-        assertTrue(incidents.isEmpty());
-    }
-
-    @Test
-    void shouldValidateOrderData() {
-        String json = """
-                {
-                  "batchId": "BATCH-1001",
-                  "orders": [
-                    {
-                      "orderId": 101,
-                      "customer": {
-                        "name": "Alice",
-                        "email": "alice@example.com"
-                      },
-                      "items": [
-                        {
-                          "quantity": 2,
-                          "product": {
-                            "sku": "KB-01",
-                            "name": "Keyboard",
-                            "price": 49.99
-                          }
-                        },
-                        {
-                          "quantity": 1,
-                          "product": {
-                            "sku": "MS-02",
-                            "name": "Mouse",
-                            "price": 19.50
-                          }
-                        }
-                      ],
-                      "discountCode": null
-                    },
-                    {
-                      "orderId": 102,
-                      "customer": {
-                        "name": "Bob",
-                        "email": "bob@example.com"
-                      },
-                      "items": [],
-                      "discountCode": "SAVE10"
-                    }
-                  ]
-                  }
-                """;
-
-        JsonPath jsonPath = new JsonPath(json);
-
         //EXTRACTIONS
         Map<String, Object> jsonRoot = jsonPath.getMap("");
         //System.out.println(jsonRoot);
 
-        String batchId = (String) jsonRoot.get("batchId");
-        //System.out.println(batchId);
+        String release = jsonRoot.get("release").toString();
+        //System.out.println(release);
 
-        List<Map<String, Object>> orders = jsonPath.getList("orders");
-        //System.out.println(orders);
-        //System.out.println("orders list size = " + orders.size());
+        List<Map<String, Object>> allEnvironments = jsonPath.getList("environments");
+        //System.out.println(environments);
 
-        Map<String, Object> firstOrder = orders.get(0);
-        //System.out.println(firstOrder);
+        Map<String, Object> firstEnvironment = allEnvironments.get(0);
+        //System.out.println(firstEnvironment);
 
-        Map<String, Object> secondOrder = orders.get(1);
-        //System.out.println(secondOrder);
+        Boolean firstEnvironmentActive = (Boolean) firstEnvironment.get("active");
+        //System.out.println(firstEnvironmentActive);
 
-        Map<String, Object> firstCustomer = jsonPath.getMap("orders[0].customer");
-        //System.out.println(firstCustomer);
+        Map<String, Object> secondEnvironment = allEnvironments.get(1);
+        //System.out.println(secondEnvironment);
 
-        String firstCustomerEmail = (String) firstCustomer.get("email");
+        Boolean secondEnvironmentActive = (Boolean) secondEnvironment.get("active");
+        //System.out.println(secondEnvironmentActive);
 
-        String firstCustomerName = (String) firstCustomer.get("name");
-        //System.out.println(firstCustomerName);
+        List<Map<String, Object>> firstEnvironmentServices = (List<Map<String, Object>>) firstEnvironment.get("services");
+        //System.out.println(firstEnvironmentServices);
 
-        List<Map<String, Object>> firstOrderItems = jsonPath.getList("orders[0].items");
-        //System.out.println(firstOrderItems);
+        List<Map<String, Object>> secondEnvironmentServices = (List<Map<String, Object>>) secondEnvironment.get("services");
+        //System.out.println(secondEnvironmentServices);
 
-        List<Integer> firstOrderItemsQuantity = jsonPath.getList("orders[0].items.quantity");
+        Map<String, Object> firstEnvironmentFirstService = firstEnvironmentServices.get(0);
+        //System.out.println(firstEnvironmentFirstService);
 
-        Map<String, Object> firstItem = firstOrderItems.get(0);
-        //System.out.println(firstItem);
+        Map<String, Object> secondEnvironmentFirstService = secondEnvironmentServices.getFirst();
+        //System.out.println(secondEnvironmentFirstService);
 
-        Map<String, Object> secondItem = firstOrderItems.get(1);
-        //System.out.println(secondItem);
+        Map<String, Object> firstEnvironmentSecondService = firstEnvironmentServices.get(1);
+        //System.out.println(firstEnvironmentSecondService);
 
-        List<Map<String, Object>> firstOrderProducts = jsonPath.get("orders[0].items.product");
-        //System.out.println(firstOrderProducts);
+        List<Integer> firstServiceResponseTimes = (List<Integer>) firstEnvironmentFirstService.get("responseTimesMs");
+        //System.out.println(firstServiceResponseTimes);
 
-        String firstItemSku = (String) firstOrderProducts.get(0).get("sku");
-        //System.out.println(firstItemSku);
+        List<Integer> secondServiceResponseTimes = (List<Integer>) firstEnvironmentSecondService.get("responseTimesMs");
+        //System.out.println(secondServiceResponseTimes);
 
-        List<String> firstOrderSkus = jsonPath.get("orders[0].items.product.sku");
-        //System.out.println(firstOrderSkus);
+        List<Integer> secondEnvironmentServiceResponseTimes = (List<Integer>) secondEnvironmentFirstService.get("responseTimesMs");
+        //System.out.println(secondEnvironmentServicesResponseTimes);
 
-        String firstOrderSkuOne = firstOrderSkus.getFirst();
-       // System.out.println(firstOrderSkuOne);
-
-        String firstOrderSkuTwo = firstOrderSkus.get(1);
-        //System.out.println(firstOrderSkuTwo);
-
-        Float firstProductPrice = (Float) firstOrderProducts.get(0).get("price");
-        //Object price = firstOrderProduct.get("price");
-        //System.out.println(price);
-        //System.out.println(price.getClass().getName());
-
-        //String firstOrderDiscountCode = (String) orders.get(0).get("discountCode");
-        Object firstDiscountCode = firstOrder.get("discountCode");
-        //System.out.print(firstDiscountCode);
-
-        //Map<String, Object> secondOrderProduct = jsonPath.get("orders[0].items[1].product");
-        //System.out.println(secondOrderProduct);
-        Map<String, Object> secondProduct = jsonPath.getMap("orders[0].items[1].product");
-
-        //List secondOrderItems = jsonPath.getList("orders[1].items");
-        //System.out.println(secondOrderItems);
-        List<Map<String, Object>> secondOrderItems = jsonPath.getList("orders[1].items");
-
-        String secondOrderDiscountCode = (String) orders.get(1).get("discountCode");
-        //System.out.println(secondOrderDiscountCode);
-
+        List<String> incidents = jsonPath.getList("incidents");
+        //System.out.println(incidents);
 
         //ASSERTIONS
-        assertEquals("BATCH-1001", batchId);
+        assertEquals("2026.07", release);
 
-        assertEquals(2, orders.size());
+        assertEquals(2, allEnvironments.size());
 
-        assertEquals(101,firstOrder.get("orderId"));
+        assertTrue(firstEnvironmentActive);
 
-        assertEquals("Alice", firstCustomer.get("name"));
+        assertFalse(secondEnvironmentActive);
 
-        //assertNotNull(firstCustomer.get("email"));
-        assertTrue(firstCustomerEmail != null && !firstCustomerEmail.isBlank());
+        assertEquals(2, firstEnvironmentServices.size());
 
-        assertEquals(2, firstOrderItems.size());
+        assertTrue(firstEnvironmentServices.stream().allMatch(service -> service.get("status").equals("UP")));
 
-        assertTrue(firstOrderItemsQuantity.stream().allMatch(quantity -> quantity > 0));
+        assertTrue(firstEnvironmentServices.stream().noneMatch(service -> ((String) service.get("name")).isBlank()));
 
-        //assertTrue(firstOrderItems.stream().allMatch(item -> item.get("product") != null));
-        assertTrue(
-                firstOrderProducts.stream().noneMatch(product -> {
-                            Object sku = product.get("sku");
-                            return sku == null || ((String) sku).isBlank();
-                        })
-        );
+        assertEquals(3, firstServiceResponseTimes.size());
 
-        assertTrue(firstOrderItems.stream().noneMatch(item -> item.get("product.sku") != null));
+        assertTrue(firstServiceResponseTimes.stream().allMatch(responseTime -> responseTime > 0));
 
-        assertTrue(firstOrderProducts.stream().anyMatch(product -> (Float) product.get("price") > 40));
+        assertTrue(secondServiceResponseTimes.stream().anyMatch(responseTime -> responseTime > 170));
 
-        assertEquals("Keyboard", firstOrderProducts.getFirst().get("name"));
+        assertTrue(secondEnvironmentServices.stream().anyMatch(service -> service.get("status").equals("DOWN")));
 
-        assertNotNull(secondOrderItems);
+        assertNotNull(secondEnvironmentServiceResponseTimes);
+        assertTrue(secondEnvironmentServiceResponseTimes.isEmpty());
 
-        assertTrue(secondOrderItems.isEmpty());
-
-        //assertTrue(firstDiscountCode == null);
-        assertNull(firstDiscountCode);
-
-        assertEquals("SAVE10", secondOrderDiscountCode);
-
-        assertNotEquals(firstOrderSkuOne, firstOrderSkuTwo);
+        assertTrue(incidents.isEmpty());
     }
 }

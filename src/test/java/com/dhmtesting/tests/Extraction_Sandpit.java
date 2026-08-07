@@ -250,7 +250,7 @@ public class Extraction_Sandpit {
         //System.out.println(firstEnvironmentSecondService);
 
         List<Integer> firstServiceResponseTimes = (List<Integer>) firstEnvironmentFirstService.get("responseTimesMs");
-        //System.out.println(firstServiceResponseTimes);
+        System.out.println(firstServiceResponseTimes);
 
         List<Integer> secondServiceResponseTimes = (List<Integer>) firstEnvironmentSecondService.get("responseTimesMs");
         //System.out.println(secondServiceResponseTimes);
@@ -289,4 +289,487 @@ public class Extraction_Sandpit {
 
         assertTrue(incidents.isEmpty());
     }
+
+    @Test
+    void shouldValidateDeploymentPipelineResults() {
+
+        String json = """
+                {
+                  "pipeline": "Customer Platform",
+                  "successful": false,
+                  "environments": [
+                    {
+                      "name": "integration",
+                      "deployed": true,
+                      "components": [
+                        {
+                          "name": "users-service",
+                          "version": "3.4.1",
+                          "checks": [
+                            {
+                              "name": "health",
+                              "passed": true,
+                              "durationMs": 125
+                            },
+                            {
+                              "name": "database",
+                              "passed": true,
+                              "durationMs": 240
+                            }
+                          ]
+                        },
+                        {
+                          "name": "orders-service",
+                          "version": "2.8.0",
+                          "checks": [
+                            {
+                              "name": "health",
+                              "passed": true,
+                              "durationMs": 180
+                            }
+                          ]
+                        }
+                      ]
+                    },
+                    {
+                      "name": "production",
+                      "deployed": false,
+                      "components": [
+                        {
+                          "name": "users-service",
+                          "version": "3.4.0",
+                          "checks": [
+                            {
+                              "name": "health",
+                              "passed": false,
+                              "durationMs": 95
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ],
+                  "warnings": []
+                }
+                """;
+
+        JsonPath jsonPath = new JsonPath(json);
+
+        // EXTRACTIONS
+        Map<String, Object> jsonRoot = jsonPath.getMap("");
+        //System.out.print(jsonRoot);
+
+        String pipeline = (String) jsonRoot.get("pipeline");
+        //System.out.println(pipeline);
+
+        Boolean successful = (Boolean) jsonRoot.get("successful");
+        //System.out.println(successful);
+
+        List<Map<String, Object>> allEnvironments = (List<Map<String, Object>>) jsonRoot.get("environments");
+        //System.out.println(allEnvironments);
+
+        Map<String, Object> integrationEnvironment = allEnvironments.get(0);
+        //System.out.println(integrationEnvironment);
+
+        Map<String, Object> productionEnvironment =
+                allEnvironments.stream()
+                        .filter(environment ->
+                                "production".equals(environment.get("name")))
+                        .findFirst()
+                        .orElseThrow();
+
+        //List<Boolean> allDeployed = allEnvironments.stream()
+        //        .map(env -> (Boolean) env.get("deployed")).toList();
+        //System.out.println(allDeployed);
+
+        List<List<Map<String, Object>>> allComponents = allEnvironments.stream()
+                .map(env -> (List<Map<String, Object>>) env.get("components")).toList();
+        //System.out.println(allComponents);
+
+        List<Map<String, Object>> integrationEnvironmentComponents = allComponents.get(0);
+        //System.out.println(integrationEnvironmentComponents);
+        //System.out.print("the size of the integration environment's components is " + integrationEnvironmentComponents.size());
+
+        List<Map<String, Object>> productionEnvironmentComponents = allComponents.get(1);
+        //System.out.println(productionEnvironmentComponents);
+        //System.out.print("the size of the production environment's components is " + productionEnvironmentComponents.size());
+
+        List<Map<String, Object>> firstIntegrationComponentChecks = jsonPath.getList("environments[0].components[0].checks");
+        //System.out.println(firstIntegrationComponentChecks );
+        //System.out.print("the size of the integration environment's components checks is " + firstIntegrationComponentChecks .size());
+
+        List<Map<String, Object>> allIntegrationChecks = integrationEnvironmentComponents.stream()
+                .flatMap(component ->
+                        ((List<Map<String, Object>>) component.get("checks"))
+                                .stream())
+                .toList();
+
+        List<Map<String, Object>> firstProductionComponentChecks = jsonPath.getList("environments[1].components[0].checks");
+        //System.out.println(firstProductionComponentChecks );
+        //System.out.print("the size of the production environment's components checks is " + firstProductionComponentChecks .size());
+
+        List<List<String>> allVersions = allComponents.stream().map(component -> component.stream()
+                .map(comp -> (String) comp.get("version")).toList()).toList();
+        //System.out.println(allVersions);
+
+
+        // Remove these until you have a requirement that needs every check
+        // across every environment and component.
+        //List<Map<String, Object>> allChecks = jsonPath.getList("environments.components.checks");
+        //System.out.println(allChecks);
+
+        //List<Integer> allDurationsMs = jsonPath.getList("environments.components.checks.durationMs");
+        //System.out.println(allDurationsMs);
+
+        List<Integer> integrationEnvironmentDurations = firstIntegrationComponentChecks.stream()
+                .map(check -> (Integer) check.get("durationMs")).toList();
+        //System.out.println(integrationEnvironmentDurations);
+
+        Map<String, Object> firstProductionComponentCheck = firstProductionComponentChecks.get(0);
+
+        Integer firstProductionCheckDuration = (Integer) firstProductionComponentCheck.get("durationMs");
+
+        //Integer productionEnvironmentDurations = firstProductionComponentChecks .stream()
+        //        .map(check -> (Integer) check.get("durationMs")).toList().get(0);
+        //System.out.println(productionEnvironmentDurations);
+
+        List<String> integrationEnvironmentComponentCheckNames = firstIntegrationComponentChecks.stream()
+                .map(check -> (String) check.get("name")).toList();
+        //System.out.println(integrationEnvironmentComponentCheckNames);
+
+        List<Object> warnings = jsonPath.getList("warnings");
+        //System.out.println(warnings);
+
+        // ASSERTIONS
+
+        //assert that The pipeline name is exactly "Customer Platform".
+        assertEquals("Customer Platform", pipeline);
+
+        //assert that The overall pipeline was not successful.
+        assertTrue(Boolean.FALSE.equals(jsonRoot.get("successful")));
+
+        //assert that Exactly two environments were returned.
+        assertEquals(2, allEnvironments.size());
+
+        //assert that The first environment is named "integration".
+        assertEquals("integration", integrationEnvironment.get("name"));
+
+        //assert thatThe integration environment was deployed.
+        assertTrue(Boolean.TRUE.equals(integrationEnvironment.get("deployed")));
+
+        //assert that The production environment was not deployed.
+        assertFalse(Boolean.TRUE.equals(productionEnvironment.get("deployed")));
+
+        //assert that The integration environment contains exactly two components.
+        assertEquals(2, integrationEnvironmentComponents.size());
+
+        //assert that Every integration component has a non-blank name.
+        assertTrue(
+                integrationEnvironmentComponents.stream()
+                        .allMatch(component -> {
+                            String name = (String) component.get("name");
+                            return name != null && !name.isBlank();
+                        })
+        );
+
+        //assert that Every integration component has a non-blank version.
+        assertTrue(
+                integrationEnvironmentComponents.stream()
+                        .allMatch(component -> {
+                            String version = (String) component.get("version");
+                            return version != null && !version.isBlank();
+                        })
+        );
+
+        //assert that At least one integration component has a version equal to "2.8.0"
+        assertTrue(integrationEnvironmentComponents.stream().anyMatch((component -> ((String) component.get("version")).equals("2.8.0"))));
+        //assertTrue(integrationEnvironmentComponents.contains("2.8.0"));
+
+        //assert that The first integration component contains exactly two checks
+        assertEquals(2, firstIntegrationComponentChecks.size());
+
+        //assert that Every check belonging to the first integration component passed.
+        assertTrue(firstIntegrationComponentChecks.stream().allMatch(check -> Boolean.TRUE.equals(check.get("passed"))));
+
+        //assert that Every check belonging to the first integration component took more than zero milliseconds.
+        assertTrue(integrationEnvironmentDurations.stream().allMatch(check -> check > 0));
+
+        //assert that At least one check across all integration components is named "health".
+        assertTrue(allIntegrationChecks.stream().anyMatch(check -> "health".equals(check.get("name"))));
+
+        //assert that The production component contains at least one failed check.
+        assertTrue(firstProductionComponentChecks.stream().anyMatch(check -> Boolean.FALSE.equals(check.get("passed"))));
+
+        //assert that The production component's first check took less than 100 milliseconds.
+        assertTrue(firstProductionCheckDuration < 100);
+
+        assertNotNull(warnings);
+        assertTrue(warnings.isEmpty());
+    }
+
+    @Test
+    void shouldValidateReleaseResults() {
+
+        String json = """
+ {
+              "releaseId": "REL-2026-08",
+              "approved": false,
+              "applications": [
+                {
+                  "name": "customer-portal",
+                  "owner": "Digital",
+                  "deployed": true,
+                  "environments": [
+                    {
+                      "name": "test",
+                      "healthy": true,
+                      "checks": [
+                        {
+                          "name": "availability",
+                          "passed": true,
+                          "durationMs": 140,
+                          "messages": []
+                        },
+                        {
+                          "name": "authentication",
+                          "passed": true,
+                          "durationMs": 220,
+                          "messages": ["Login successful"]
+                        }
+                      ]
+                    },
+                    {
+                      "name": "production",
+                      "healthy": false,
+                      "checks": [
+                        {
+                          "name": "availability",
+                          "passed": false,
+                          "durationMs": 85,
+                          "messages": ["Service unavailable"]
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "name": "admin-console",
+                  "owner": "Operations",
+                  "deployed": false,
+                  "environments": [
+                    {
+                      "name": "test",
+                      "healthy": true,
+                      "checks": [
+                        {
+                          "name": "availability",
+                          "passed": true,
+                          "durationMs": 175,
+                          "messages": []
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ],
+              "rollbackReason": null,
+              "warnings": []
+            }
+            """;
+
+        JsonPath jsonPath = new JsonPath(json);
+
+        //EXTRACTIONS
+
+        //extract root Json
+        Map<String, Object> jsonRoot = jsonPath.getMap("");
+
+        //extract a list of all applications from the root Json
+        List<Map<String, Object>> allApplications = (List<Map<String, Object>>) jsonRoot.get("applications");
+        //System.out.println(allApplications);
+        //System.out.println(allApplications.size());
+
+        //extract all application environments list from the list of all applications
+        List<List<Map<String, Object>>> allApplicationsEnvironments = allApplications.stream()
+                .map(application -> (List<Map<String, Object>>) application.get("environments")).toList();
+
+        //extract all the checks from every environment for every application
+        List<Map<String, Object>> allChecksAcrossAllApplications = allApplicationsEnvironments.stream()
+                .flatMap(List::stream)
+                .flatMap(environment ->
+                        ((List<Map<String, Object>>) environment.get("checks")).stream())
+                .toList();
+
+        //extract all check durations
+        List<Integer> allDurations = allChecksAcrossAllApplications.stream()
+                .map(check -> (Integer) check.get("durationMs"))
+                .toList();
+
+        List<String> allCheckNames = allChecksAcrossAllApplications.stream()
+                .map(check -> (String) check.get("name"))
+                .toList();
+        //System.out.println(allCheckNames);
+
+        //extract customer portal application map from the list of all applications
+        Map<String, Object> customerPortalApplication =
+                allApplications.stream()
+                        .filter(application ->
+                                "customer-portal".equals(application.get("name")))
+                        .findAny()
+                        .orElseThrow();
+        //System.out.println(customerPortalApplication);
+
+        //extract admin console application map from the list of all applications
+        //Map<String, Object> adminConsoleApplication = allApplications.get(1);
+        Map<String, Object> adminConsoleApplication =
+                allApplications.stream()
+                        .filter(application ->
+                                "admin-console".equals(application.get("name")))
+                        .findAny()
+                        .orElseThrow();
+        //System.out.println(adminConsoleApplication);
+
+        //extract and list all customer portal application environments list from customer portal application map
+        List<Map<String, Object>> customerPortalApplicationAllEnvironments = (List<Map<String, Object>>) customerPortalApplication.get("environments");
+
+        //extract customer portal test environment map from list of all customer portal environments
+        Map<String, Object> customerPortalApplicationTestEnvironment =
+                customerPortalApplicationAllEnvironments.stream()
+                        .filter(environment ->
+                                "test".equals(environment.get("name")))
+                        .findFirst()
+                        .orElseThrow();
+
+        //extract customer portal production environment map from list of all customer portal environments
+        Map<String, Object> customerPortalApplicationProductionEnvironment =
+                customerPortalApplicationAllEnvironments.stream()
+                        .filter(environment ->
+                                "production".equals(environment.get("name")))
+                        .findFirst()
+                        .orElseThrow();
+
+        //extract the test environment checks list from the customer portal test environment map
+        List<Map<String, Object>> customerPortalApplicationTestEnvironmentChecks = (List<Map<String, Object>>) customerPortalApplicationTestEnvironment.get("checks");
+
+        //extract the customer portal test environment checks duration list from the customer portal test environment checks map
+        List<Integer> customerPortalApplicationTestEnvironmentChecksDuration = customerPortalApplicationTestEnvironmentChecks.stream()
+                .map(check -> (Integer) check.get("durationMs")).toList();
+
+        //extract the production environment checks list from the customer portal production environment map
+        List<Map<String, Object>> customerPortalApplicationProductionEnvironmentChecks = (List<Map<String, Object>>) customerPortalApplicationProductionEnvironment.get("checks");
+
+        //extract the "messages" list from customer portal application production environment checks
+        List<String> firstCustomerPortalProductionCheckMessages = (List<String>) customerPortalApplicationProductionEnvironmentChecks.get(0).get("messages");
+        System.out.println(firstCustomerPortalProductionCheckMessages);
+
+        //extract the messages lists from the test environment checks
+        List<List<String>> testEnvironmentMessages = customerPortalApplicationTestEnvironmentChecks.stream()
+                .map(check -> (List<String>) check.get("messages"))
+                .toList();
+
+        //extract the "warnings" list
+        List<Object> warnings = jsonPath.getList("warnings");
+
+        Map<String, Object> firstCustomerPortalTestCheck =
+                customerPortalApplicationTestEnvironmentChecks.get(0);
+
+        List<String> firstCustomerPortalTestCheckMessages =
+                (List<String>) firstCustomerPortalTestCheck.get("messages");
+
+
+        //ASSERTIONS
+
+        //assert that The release ID is exactly "REL-2026-08".
+        assertEquals("REL-2026-08", jsonRoot.get("releaseId"));
+
+        //assert that The release has an actual Boolean value of false for approved
+        assertTrue(Boolean.FALSE.equals(jsonRoot.get("approved")));
+
+        //Exactly two applications were returned.
+        assertEquals(2, allApplications.size());
+
+        //Every application has a non-null, non-blank name.
+        assertTrue(
+                allApplications.stream()
+                        .allMatch(application -> {
+                            String name = (String) application.get("name");
+                            return name != null && !name.isBlank();
+                        }));
+
+        //assert that Every application has a non-null, non-blank owner
+        assertTrue(
+                allApplications.stream()
+                        .allMatch(application -> {
+                            String name = (String) application.get("owner");
+                            return name != null && !name.isBlank();
+                        }));
+
+        //The application named "customer-portal" was deployed.
+        assertTrue(Boolean.TRUE.equals(customerPortalApplication.get("deployed")));
+
+        //The application named "admin-console" was not deployed
+        assertTrue(Boolean.FALSE.equals(adminConsoleApplication.get("deployed")));
+
+        //The customer portal contains exactly two environments
+        assertEquals(2, customerPortalApplicationAllEnvironments.size());
+
+        //The customer portal environment named "test" is healthy.
+        assertTrue(Boolean.TRUE.equals(customerPortalApplicationAllEnvironments.get(0).get("healthy")));
+
+        //The customer portal environment named "production" has an actual Boolean value of false for healthy
+        assertTrue(Boolean.FALSE.equals(customerPortalApplicationAllEnvironments.get(1).get("healthy")));
+
+        //Every check in the customer portal test environment passed
+        assertTrue(customerPortalApplicationTestEnvironmentChecks.stream().allMatch(check -> Boolean.TRUE.equals(check.get("passed"))));
+
+        //Every check in the customer portal test environment took more than zero milliseconds.
+        assertTrue(customerPortalApplicationTestEnvironmentChecksDuration.stream().allMatch(check -> (Integer) check > 0));
+        assertTrue(customerPortalApplicationTestEnvironmentChecksDuration.stream().allMatch(duration -> duration > 0));
+
+        //At least one check across all environments of all applications took less than 100 milliseconds.
+        assertTrue(allChecksAcrossAllApplications.stream().anyMatch(check -> (Integer) check.get("durationMs") < 100));
+        assertTrue(allDurations.stream().anyMatch(check -> (Integer) check < 100));
+
+        //At least one check across all environments of all applications is named "availability"
+        //assertTrue(allCheckNames.stream().anyMatch(name -> name.equals("availability")));
+        assertTrue(
+                allChecksAcrossAllApplications.stream()
+                        .anyMatch(check ->
+                                "availability".equals(check.get("name")))
+        );
+
+        //No check across all environments of all applications has a null or blank name.
+        assertTrue(
+                allChecksAcrossAllApplications.stream()
+                        .allMatch(application -> {
+                            String name = (String) application.get("name");
+                            return name != null && !name.isBlank();
+                        }));
+
+        //The customer portal production environment contains at least one failed check
+        assertTrue(customerPortalApplicationProductionEnvironmentChecks.stream()
+                .anyMatch(check -> Boolean.FALSE.equals(check.get("passed"))));
+
+        //assert that The first production check contains the exact message "Service unavailable"
+        //assertEquals(List.of("Service unavailable"), firstCustomerPortalProductionCheckMessages);
+        assertTrue(
+                firstCustomerPortalProductionCheckMessages
+                        .contains("Service unavailable")
+        );
+
+        //assert that The first test check for the customer portal has an existing and empty messages list
+        assertNotNull(firstCustomerPortalTestCheckMessages);
+        assertTrue(firstCustomerPortalTestCheckMessages.isEmpty());
+
+        //assert that rollbackReason exists and is null
+        assertTrue(jsonRoot.containsKey("rollbackReason"));
+
+        //assert that rollbackReason exists and is null
+        assertNull(jsonRoot.get("rollbackReason"));
+
+        //assert that The warnings list exists and is empty.
+        assertNotNull(warnings);
+        assertTrue(warnings.isEmpty());
+    }
 }
+
